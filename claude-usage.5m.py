@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """Claude Code usage stats — SwiftBar plugin.
 
-Displays 5-hour rolling window usage, current session stats,
-daily/weekly totals, and per-project breakdown.
+Usage percentages and reset timers come from Claude's OAuth API
+(same source as the /usage command in Claude Code).
+
+Session-level stats (cost, tokens, burn rate) and per-project
+breakdowns come from local telemetry files.
 
 Data sources:
-  ~/.claude/telemetry/*.json   (API call costs, tokens, durations)
-  ~/.claude/projects/**/*.jsonl (session/project mapping)
+  Claude API:  https://api.anthropic.com/api/oauth/usage
+  Local:       ~/.claude/telemetry/*.json, ~/.claude/projects/**/*.jsonl
 
-State persisted at:
-  ~/.config/claude-usage/state.json
-  ~/.config/claude-usage/config.json
+Config:  ~/.config/claude-usage/config.json
 """
 
 import sys
 import os
 
-# Ensure imports work regardless of SwiftBar's working directory
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Follow symlink to find the real script directory
 REAL_DIR = os.path.dirname(os.path.realpath(__file__))
 if REAL_DIR not in sys.path:
@@ -26,40 +25,33 @@ if REAL_DIR not in sys.path:
 
 def main():
     try:
+        from api import fetch_usage
         from parsers import parse_telemetry_events, get_current_session_id, get_session_project_map
         from metrics import compute_metrics
-        from state import (
-            load_state, save_state, load_config,
-            update_cap_from_events, compute_window_cost_at_time,
-        )
+        from state import load_config
         from renderer import render
 
-        # Parse telemetry (7 days of data)
-        events = parse_telemetry_events(since_hours=168)
+        # Fetch official usage from Claude API
+        api_usage = fetch_usage()
 
-        # Detect current session and project mapping
+        # Parse local telemetry for session/project detail
+        events = parse_telemetry_events(since_hours=168)
         session_id = get_current_session_id()
         project_map = get_session_project_map()
-
-        # Compute metrics
         metrics = compute_metrics(events, session_id, project_map)
 
-        # Load and update state
-        state = load_state()
         config = load_config()
 
-        # Auto-detect rate limit cap from threshold events
-        api_events = [e for e in events if e["event_name"] == "tengu_api_success"]
-        cost_fn = compute_window_cost_at_time(api_events)
-        state = update_cap_from_events(events, state, cost_fn)
-        save_state(state)
+        # Session-level metrics to pass to renderer
+        session_metrics = {
+            "current_session": metrics["current_session"],
+            "projects": metrics["projects"],
+        }
 
-        # Render output
-        render(metrics, state, config)
+        render(api_usage, session_metrics, config)
 
     except Exception as e:
-        # If anything fails, show error in menu bar
-        print(f"CC: err | color=red")
+        print("CC: err | color=red")
         print("---")
         print(f"Error: {e} | color=red font=Menlo size=11")
         import traceback

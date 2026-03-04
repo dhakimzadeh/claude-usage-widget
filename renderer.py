@@ -3,125 +3,117 @@
 
 import os
 from metrics import format_duration, format_tokens
+from api import parse_reset_time
 
 
-def progress_bar(fraction, width=20):
-    """Render a text progress bar using block characters."""
+def progress_bar(pct, width=20):
+    """Render a text progress bar. pct is 0-100."""
+    fraction = max(0, min(pct / 100, 1.0))
     filled = int(fraction * width)
-    filled = max(0, min(filled, width))
     empty = width - filled
     return f"[{'█' * filled}{'░' * empty}]"
 
 
-def title_color(fraction, config):
-    """Determine title color based on usage fraction."""
-    if fraction is None:
+def title_color(pct, config):
+    """Determine title color based on usage percentage (0-100)."""
+    if pct is None:
         return ""
-    if fraction >= config.get("critical_threshold", 0.95):
+    warning = config.get("warning_threshold", 0.8) * 100
+    critical = config.get("critical_threshold", 0.95) * 100
+    if pct >= critical:
         return " | color=red"
-    if fraction >= config.get("warning_threshold", 0.8):
+    if pct >= warning:
         return " | color=orange"
     return ""
 
 
-def render(metrics, state, config):
+def render(api_usage, session_metrics, config):
     """Render SwiftBar output to stdout.
 
     Args:
-        metrics: Dict from compute_metrics().
-        state: Dict from load_state().
+        api_usage: Dict from fetch_usage() (Claude API data), or None.
+        session_metrics: Dict with current_session and projects from local telemetry.
         config: Dict from load_config().
     """
-    from state import get_effective_cap
     lines = []
 
-    cap = get_effective_cap(state, config)
-    w = metrics["window_5h"]
-    s = metrics["current_session"]
+    # --- Extract API data ---
+    if api_usage:
+        fh = api_usage.get("five_hour") or {}
+        sd = api_usage.get("seven_day") or {}
+        ss = api_usage.get("seven_day_sonnet") or {}
 
-    # Handle no data
-    if not any([w["cost"], s["cost"], metrics["today"]["cost"]]):
-        lines.append("CC: -- | color=gray")
-        lines.append("---")
-        lines.append("No Claude Code usage data found | disabled=true")
-        lines.append("---")
-        lines.append("⟳ Refresh | refresh=true")
-        for line in lines:
-            print(line)
-        return
+        fh_pct = fh.get("utilization")
+        fh_reset = parse_reset_time(fh.get("resets_at"))
+        sd_pct = sd.get("utilization")
+        sd_reset = parse_reset_time(sd.get("resets_at"))
+        ss_pct = ss.get("utilization") if ss else None
+    else:
+        fh_pct = None
+        fh_reset = 0
+        sd_pct = None
+        sd_reset = 0
+        ss_pct = None
 
     # --- Menu bar title ---
-    if cap and cap > 0:
-        fraction = w["cost"] / cap
-        pct = min(fraction * 100, 100)
-        reset_str = format_duration(w["reset_seconds"])
-        color = title_color(fraction, config)
-        lines.append(f"CC: {pct:.0f}% | {reset_str}{color}")
+    if fh_pct is not None:
+        reset_str = format_duration(fh_reset)
+        color = title_color(fh_pct, config)
+        lines.append(f"CC: {fh_pct:.0f}% | {reset_str}{color}")
     else:
-        lines.append(f"CC: ${w['cost']:.2f}")
+        lines.append("CC: ? | color=red")
 
     lines.append("---")
 
-    # --- 5-Hour Window ---
+    # --- 5-Hour Window (from API) ---
     lines.append("5-Hour Window | disabled=true size=14")
-    if cap and cap > 0:
-        fraction = w["cost"] / cap
-        bar = progress_bar(fraction)
-        pct = min(fraction * 100, 100)
-        lines.append(f"{bar} {pct:.0f}% | font=Menlo size=12")
-        lines.append(f"${w['cost']:.2f} / ${cap:.2f} (learned cap) | font=Menlo size=12")
+    if fh_pct is not None:
+        bar = progress_bar(fh_pct)
+        lines.append(f"{bar} {fh_pct:.0f}% | font=Menlo size=12")
+        lines.append(f"Resets in: {format_duration(fh_reset)} | font=Menlo size=12")
     else:
-        lines.append(f"${w['cost']:.2f} (no cap learned yet) | font=Menlo size=12")
-    if w["reset_seconds"] > 0:
-        lines.append(f"Resets in: {format_duration(w['reset_seconds'])} | font=Menlo size=12")
-    lines.append(f"API calls: {w['event_count']} | font=Menlo size=12 color=gray")
+        lines.append("Could not fetch usage data | font=Menlo size=12 color=red")
+        lines.append("Check OAuth token in Keychain | font=Menlo size=11 color=gray")
 
     lines.append("---")
 
-    # --- Current Session ---
-    lines.append("Current Session | disabled=true size=14")
-    lines.append(f"Cost:       ${s['cost']:.2f} | font=Menlo size=12")
-    lines.append(f"Duration:   {format_duration(s['duration_seconds'])} | font=Menlo size=12")
-    lines.append(f"Burn rate:  ${s['burn_rate_per_hour']:.2f}/hr | font=Menlo size=12")
-    lines.append(f"In tokens:  {format_tokens(s['input_tokens'])} | font=Menlo size=12")
-    lines.append(f"Out tokens: {format_tokens(s['output_tokens'])} | font=Menlo size=12")
-    lines.append(f"Cached:     {format_tokens(s['cached_tokens'])} | font=Menlo size=12")
-    lines.append(f"Model:      {s['model']} | font=Menlo size=12")
-    lines.append(f"API calls:  {s['api_calls']} | font=Menlo size=12 color=gray")
+    # --- 7-Day Window (from API) ---
+    lines.append("7-Day Window | disabled=true size=14")
+    if sd_pct is not None:
+        bar = progress_bar(sd_pct)
+        lines.append(f"{bar} {sd_pct:.0f}% | font=Menlo size=12")
+        lines.append(f"Resets in: {format_duration(sd_reset)} | font=Menlo size=12")
+    else:
+        lines.append("-- | font=Menlo size=12 color=gray")
+
+    if ss_pct is not None:
+        lines.append(f"Sonnet: {ss_pct:.0f}% | font=Menlo size=12 color=gray")
 
     lines.append("---")
 
-    # --- Today ---
-    t = metrics["today"]
-    lines.append("Today | disabled=true size=14")
-    lines.append(f"Total cost:  ${t['cost']:.2f} | font=Menlo size=12")
-    lines.append(f"Sessions:    {t['sessions']} | font=Menlo size=12")
-    lines.append(f"API calls:   {t['api_calls']} | font=Menlo size=12 color=gray")
+    # --- Current Session (from local telemetry) ---
+    s = session_metrics.get("current_session", {})
+    if s.get("api_calls", 0) > 0:
+        lines.append("Current Session | disabled=true size=14")
+        lines.append(f"Cost:       ${s['cost']:.2f} | font=Menlo size=12")
+        lines.append(f"Duration:   {format_duration(s['duration_seconds'])} | font=Menlo size=12")
+        lines.append(f"Burn rate:  ${s['burn_rate_per_hour']:.2f}/hr | font=Menlo size=12")
+        lines.append(f"In tokens:  {format_tokens(s['input_tokens'])} | font=Menlo size=12")
+        lines.append(f"Out tokens: {format_tokens(s['output_tokens'])} | font=Menlo size=12")
+        lines.append(f"Cached:     {format_tokens(s['cached_tokens'])} | font=Menlo size=12")
+        lines.append(f"Model:      {s['model']} | font=Menlo size=12")
+        lines.append(f"API calls:  {s['api_calls']} | font=Menlo size=12 color=gray")
+        lines.append("---")
 
-    lines.append("---")
-
-    # --- 7-Day Rolling ---
-    wk = metrics["week"]
-    lines.append("7-Day Rolling | disabled=true size=14")
-    lines.append(f"Total cost:  ${wk['cost']:.2f} | font=Menlo size=12")
-    lines.append(f"Avg/day:     ${wk['avg_per_day']:.2f} | font=Menlo size=12")
-    lines.append(f"API calls:   {wk['api_calls']} | font=Menlo size=12 color=gray")
-
-    lines.append("---")
-
-    # --- Projects (today) ---
-    projects = metrics["projects"]
+    # --- Projects (today, from local telemetry) ---
+    projects = session_metrics.get("projects", {})
     if projects:
         lines.append("Projects (today) | disabled=true size=14")
         for name, cost in projects.items():
             lines.append(f"{name:<20s} ${cost:.2f} | font=Menlo size=12")
-    else:
-        lines.append("No project data today | disabled=true color=gray")
-
-    lines.append("---")
+        lines.append("---")
 
     # --- Actions ---
-    # Refresh triggers SwiftBar to re-run the plugin
     lines.append("⟳ Refresh | refresh=true")
     config_path = os.path.expanduser("~/.config/claude-usage/config.json")
     lines.append(f"⚙ Config... | bash=open param1={config_path} terminal=false")
@@ -130,13 +122,10 @@ def render(metrics, state, config):
 
     # --- About ---
     lines.append("About Claude Usage Widget | disabled=true size=14")
-    lines.append("v1.0.0 | font=Menlo size=11 color=gray")
-    lines.append("Reads local Claude Code telemetry — no login, | font=Menlo size=11 color=gray")
-    lines.append("no API keys, no network access required. | font=Menlo size=11 color=gray")
-    lines.append("Data: ~/.claude/telemetry/ | font=Menlo size=11 color=gray")
-    lines.append("Config: ~/.config/claude-usage/ | font=Menlo size=11 color=gray")
+    lines.append("v2.0.0 | font=Menlo size=11 color=gray")
+    lines.append("Usage % from Claude API (OAuth) | font=Menlo size=11 color=gray")
+    lines.append("Session stats from local telemetry | font=Menlo size=11 color=gray")
     lines.append("GitHub | href=https://github.com/dhakimzadeh/claude-usage-widget")
 
-    # Print all lines
     for line in lines:
         print(line)
