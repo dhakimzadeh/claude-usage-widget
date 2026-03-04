@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 TELEMETRY_DIR = Path.home() / ".claude" / "telemetry"
+PROJECTS_DIR = Path.home() / ".claude" / "projects"
+HISTORY_FILE = Path.home() / ".claude" / "history.jsonl"
 
 
 def parse_telemetry_events(since_hours=168):
@@ -109,16 +111,92 @@ def parse_telemetry_events(since_hours=168):
     return events
 
 
+def get_current_session_id():
+    """Get the most recent active session ID.
+
+    Reads the last entry from ~/.claude/history.jsonl.
+    Falls back to the most recently modified session .jsonl file.
+    """
+    # Try history.jsonl first (most reliable)
+    if HISTORY_FILE.exists():
+        last_line = None
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped:
+                        last_line = stripped
+            if last_line:
+                record = json.loads(last_line)
+                session_id = record.get("sessionId", "")
+                if session_id:
+                    return session_id
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Fallback: most recently modified .jsonl in projects dir
+    if not PROJECTS_DIR.exists():
+        return None
+
+    newest = None
+    newest_mtime = 0
+    for fpath in PROJECTS_DIR.rglob("*.jsonl"):
+        # Skip subagent files
+        if "subagents" in str(fpath):
+            continue
+        mtime = fpath.stat().st_mtime
+        if mtime > newest_mtime:
+            newest_mtime = mtime
+            newest = fpath
+
+    if newest:
+        return newest.stem
+
+    return None
+
+
+def get_session_project_map():
+    """Map session IDs to project paths.
+
+    Returns dict: session_id -> project_path (e.g., "/Users/dan/Projects/RekordShelf")
+    """
+    session_map = {}
+
+    if not PROJECTS_DIR.exists():
+        return session_map
+
+    for project_dir in PROJECTS_DIR.iterdir():
+        if not project_dir.is_dir():
+            continue
+
+        # Decode the project path from dir name (dashes replace slashes)
+        # e.g., "-Users-dan-Projects-RekordShelf" -> "/Users/dan/Projects/RekordShelf"
+        project_path = project_dir.name.replace("-", "/")
+        # Use the last path component as a friendly name
+        friendly_name = project_path.rstrip("/").split("/")[-1] if "/" in project_path else project_path
+
+        for fpath in project_dir.glob("*.jsonl"):
+            if "subagents" in str(fpath):
+                continue
+            session_id = fpath.stem
+            session_map[session_id] = friendly_name
+
+    return session_map
+
+
 if __name__ == "__main__":
     events = parse_telemetry_events(since_hours=24)
     api_events = [e for e in events if e["event_name"] == "tengu_api_success"]
-    exit_events = [e for e in events if e["event_name"] == "tengu_exit"]
-    threshold_events = [e for e in events if e["event_name"] == "tengu_cost_threshold_reached"]
-
-    print(f"Last 24h: {len(api_events)} API calls, {len(exit_events)} exits, {len(threshold_events)} threshold events")
+    print(f"Last 24h: {len(api_events)} API calls")
     total_cost = sum(e.get("cost_usd", 0) for e in api_events)
     print(f"Total cost: ${total_cost:.2f}")
 
-    if api_events:
-        latest = api_events[-1]
-        print(f"Latest: {latest['timestamp']} model={latest['model']} cost=${latest['cost_usd']:.4f}")
+    current = get_current_session_id()
+    print(f"Current session: {current}")
+
+    project_map = get_session_project_map()
+    print(f"Known projects: {len(project_map)} sessions across projects")
+    # Show unique project names
+    unique_projects = set(project_map.values())
+    for p in sorted(unique_projects):
+        print(f"  - {p}")
