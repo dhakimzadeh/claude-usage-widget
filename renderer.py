@@ -5,6 +5,9 @@ import os
 from metrics import format_duration, format_tokens
 from api import parse_reset_time
 
+# 22pt @ 2x retina stonks chart icon (templateImage adapts to light/dark mode)
+ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAACwAAAAsCAYAAAAehFoBAAAAkUlEQVR42u2YSw7AIBBCvTlHn26bJo1TNz4qJLN/IsTPGNFZ0mPQkPUyKFVjRHK2AzycgOUWCWTxyqVwI3HYXDi8u/fF2MBalExOsFh39YcoBDYlS8mSWwNYOZUsUTgqCrPfGJS7MxiUu503F8bdWhwrWJFgO69d7A0L4e7XG5Z2u6vFLd56QFgcqyjHoiiC6QIwMAR47c6aiAAAAABJRU5ErkJggg=="
+
 
 def progress_bar(pct, width=20):
     """Render a text progress bar. pct is 0-100."""
@@ -59,9 +62,9 @@ def render(api_usage, session_metrics, config):
     if fh_pct is not None:
         reset_str = format_duration(fh_reset)
         color = title_color(fh_pct, config)
-        lines.append(f"CC: {fh_pct:.0f}% | {reset_str}{color}")
+        lines.append(f"{fh_pct:.0f}% | templateImage={ICON_B64}{color}")
     else:
-        lines.append("CC: ? | color=red")
+        lines.append(f"? | templateImage={ICON_B64} color=red")
 
     lines.append("---")
 
