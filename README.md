@@ -2,24 +2,27 @@
 
 A macOS menu bar widget that shows your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) usage stats at a glance. Built with [SwiftBar](https://github.com/swiftbar/SwiftBar) and Python.
 
-No login required. No API keys. No network access. Everything is read from local telemetry files that Claude Code already writes to your machine.
+Usage percentages and reset timers come directly from Claude's API -- the same source as the `/usage` command in Claude Code. Session-level detail (cost, tokens, burn rate) and per-project breakdowns come from local telemetry.
 
 ## What You Get
 
-A persistent menu bar item showing your 5-hour rolling usage window:
+A persistent menu bar item showing your 5-hour rolling usage:
 
 ```
-CC: 59% | 3h 27m
+CC: 74% | 2h 39m
 ```
 
 Click it to see the full dashboard:
 
 ```
 5-Hour Window
-[███████████░░░░░░░░░] 59%
-$32.59 / $55.00 (learned cap)
-Resets in: 3h 27m
-API calls: 709
+[██████████████░░░░░░] 74%
+Resets in: 2h 39m
+
+7-Day Window
+[██████████░░░░░░░░░░] 51%
+Resets in: 46h 39m
+Sonnet: 3%
 
 Current Session
 Cost:       $18.17
@@ -30,16 +33,6 @@ Out tokens: 68.0k
 Cached:     26.5M
 Model:      claude-opus-4-6
 API calls:  314
-
-Today
-Total cost:  $32.59
-Sessions:    4
-API calls:   709
-
-7-Day Rolling
-Total cost:  $62.03
-Avg/day:     $31.01
-API calls:   1216
 
 Projects (today)
 RekordShelf          $25.75
@@ -56,28 +49,28 @@ The menu bar text changes color as you approach your limit:
 
 ## How It Works
 
-Claude Code writes telemetry data to `~/.claude/` as you use it. This widget reads those local files, computes usage metrics, and displays them via SwiftBar. There is:
+### Authentication
 
-- **No authentication** -- it reads files already on your disk
-- **No API calls** -- everything is computed locally
-- **No network access** -- the script never touches the internet
-- **No Claude Code modification** -- it's a read-only observer
+**No manual login or API keys required.** The widget reads the OAuth token that Claude Code already stores in your macOS Keychain (under "Claude Code-credentials"). As long as you're logged into Claude Code, the widget works.
 
 ### Data Sources
 
-| File | What It Contains |
-|------|-----------------|
-| `~/.claude/telemetry/*.json` | Per-request cost, tokens, model, duration |
-| `~/.claude/projects/**/*.jsonl` | Session-to-project mapping |
-| `~/.claude/history.jsonl` | Current active session ID |
+| Source | What It Provides | How |
+|--------|-----------------|-----|
+| Claude OAuth API | 5-hour usage %, 7-day usage %, reset timers | Reads token from Keychain, calls `api.anthropic.com/api/oauth/usage` |
+| Local telemetry | Session cost, tokens, burn rate, model | Reads `~/.claude/telemetry/*.json` |
+| Local project files | Per-project cost breakdown | Reads `~/.claude/projects/**/*.jsonl` |
+
+The usage percentages are the exact same numbers you see on Claude's settings page and in the `/usage` command. No local estimation or cap guessing.
 
 ### Architecture
 
 ```
 claude-usage.5m.py    # SwiftBar entry point (runs every 5 min)
-  -> parsers.py       # Reads telemetry + session files
-  -> metrics.py       # Computes all dashboard numbers
-  -> state.py         # Persists learned rate cap + config
+  -> api.py           # Fetches usage % from Claude OAuth API
+  -> parsers.py       # Reads local telemetry + session files
+  -> metrics.py       # Computes session/project stats
+  -> state.py         # Config persistence
   -> renderer.py      # Formats SwiftBar output
 ```
 
@@ -87,7 +80,7 @@ claude-usage.5m.py    # SwiftBar entry point (runs every 5 min)
 
 - macOS
 - Python 3 (included with macOS)
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and used at least once (so telemetry files exist)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and logged in
 
 ### Steps
 
@@ -114,7 +107,7 @@ claude-usage.5m.py    # SwiftBar entry point (runs every 5 min)
 
    Open SwiftBar. When prompted for a plugin directory, select `~/SwiftBarPlugins`.
 
-5. **Verify** -- you should see `CC: XX%` (or `CC: $X.XX` if no cap is set yet) in your menu bar.
+5. **Verify** -- you should see `CC: XX%` in your menu bar within a few seconds.
 
 ## Configuration
 
@@ -122,7 +115,6 @@ Config lives at `~/.config/claude-usage/config.json`. Created automatically on f
 
 ```json
 {
-  "manual_cap_override": 55.0,
   "warning_threshold": 0.8,
   "critical_threshold": 0.95
 }
@@ -130,23 +122,12 @@ Config lives at `~/.config/claude-usage/config.json`. Created automatically on f
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `manual_cap_override` | Your 5-hour spending cap in USD. Set this to match your plan's limit. | `null` (auto-detect) |
-| `warning_threshold` | Fraction of cap at which title turns orange | `0.8` |
-| `critical_threshold` | Fraction of cap at which title turns red | `0.95` |
-
-### Finding Your Cap
-
-Check your usage on the [Claude settings page](https://console.anthropic.com/settings/usage). If it shows 57% used and the widget shows $31.50 in the 5-hour window, your cap is roughly `$31.50 / 0.57 = $55`.
-
-### Rate Limit Auto-Detection
-
-The widget also tries to learn your cap automatically by watching for `tengu_cost_threshold_reached` telemetry events. These fire when Claude Code hits an internal spending threshold. The learned cap is stored in `~/.config/claude-usage/state.json`.
-
-The manual override in `config.json` always takes priority over the auto-detected value.
+| `warning_threshold` | Fraction (0-1) at which title turns orange | `0.8` |
+| `critical_threshold` | Fraction (0-1) at which title turns red | `0.95` |
 
 ## Refresh Interval
 
-The `5m` in the filename (`claude-usage.5m.py`) tells SwiftBar to re-run the script every 5 minutes. To change the interval, rename the symlink:
+The `5m` in the filename tells SwiftBar to re-run every 5 minutes. To change it, rename the symlink:
 
 ```bash
 # Every 1 minute
@@ -160,17 +141,17 @@ You can also click **Refresh** in the dropdown to update immediately.
 
 ## Troubleshooting
 
-**Widget shows "CC: --" in gray**
-No telemetry data found. Make sure you've used Claude Code at least once. Check that `~/.claude/telemetry/` exists and has `.json` files.
+**Widget shows "CC: ?" in red**
+The OAuth API call failed. Make sure you're logged into Claude Code (`claude` in terminal). The widget reads the token from your macOS Keychain automatically.
 
 **Widget shows "CC: err" in red**
-Click it to see the error traceback. Common causes: Python version issues, missing telemetry directory, or file permission problems.
-
-**Percentage doesn't match Claude settings page**
-Adjust `manual_cap_override` in `~/.config/claude-usage/config.json`. See "Finding Your Cap" above.
+Click it to see the error traceback in the dropdown.
 
 **SwiftBar can't find the plugins folder**
-`~/Library` is hidden by default in macOS file pickers. Use `~/SwiftBarPlugins` (or any visible directory) instead.
+`~/Library` is hidden in macOS file pickers. Use `~/SwiftBarPlugins` (or any visible directory) instead.
+
+**Session stats show wrong session**
+The widget picks up the most recent session from `~/.claude/history.jsonl`. If you have multiple Claude Code instances, it shows the latest one.
 
 ## License
 
