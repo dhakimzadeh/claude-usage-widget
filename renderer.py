@@ -126,6 +126,17 @@ def render(metrics, state, config):
     config_path = os.path.expanduser("~/.config/claude-usage/config.json")
     lines.append(f"⚙ Config... | bash=open param1={config_path} terminal=false")
 
+    lines.append("---")
+
+    # --- About ---
+    lines.append("About Claude Usage Widget | disabled=true size=14")
+    lines.append("v1.0.0 | font=Menlo size=11 color=gray")
+    lines.append("Reads local Claude Code telemetry — no login, | font=Menlo size=11 color=gray")
+    lines.append("no API keys, no network access required. | font=Menlo size=11 color=gray")
+    lines.append("Data: ~/.claude/telemetry/ | font=Menlo size=11 color=gray")
+    lines.append("Config: ~/.config/claude-usage/ | font=Menlo size=11 color=gray")
+    lines.append("GitHub | href=https://github.com/dhakimzadeh/claude-usage-widget")
+
     # Print all lines
     for line in lines:
         print(line)
