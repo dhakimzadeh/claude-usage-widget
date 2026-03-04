@@ -6,10 +6,10 @@ Usage percentages and reset timers come directly from Claude's API -- the same s
 
 ## What You Get
 
-A persistent menu bar item showing your 5-hour rolling usage:
+A persistent menu bar item showing your 5-hour rolling usage with the Claude sparkle icon:
 
 ```
-CC: 74% | 2h 39m
+✦ 74%
 ```
 
 Click it to see the full dashboard:
@@ -37,6 +37,12 @@ API calls:  314
 Projects (today)
 RekordShelf          $25.75
 dan                  $6.84
+
+⟳ Refresh
+⚙ Config...
+
+Updated 3:45 PM
+GitHub
 ```
 
 The menu bar text changes color as you approach your limit:
@@ -107,7 +113,7 @@ claude-usage.5m.py    # SwiftBar entry point (runs every 5 min)
 
    Open SwiftBar. When prompted for a plugin directory, select `~/SwiftBarPlugins`.
 
-5. **Verify** -- you should see `CC: XX%` in your menu bar within a few seconds.
+5. **Verify** -- you should see your usage percentage with the Claude icon in your menu bar within a few seconds.
 
 ## Configuration
 
@@ -141,10 +147,10 @@ You can also click **Refresh** in the dropdown to update immediately.
 
 ## Troubleshooting
 
-**Widget shows "CC: ?" in red**
+**Widget shows "?" in red**
 The OAuth API call failed. Make sure you're logged into Claude Code (`claude` in terminal). The widget reads the token from your macOS Keychain automatically.
 
-**Widget shows "CC: err" in red**
+**Widget shows "err" in red**
 Click it to see the error traceback in the dropdown.
 
 **SwiftBar can't find the plugins folder**
