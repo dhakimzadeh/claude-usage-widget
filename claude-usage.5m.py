@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# <swiftbar.hideSwiftBar>true</swiftbar.hideSwiftBar>
+
 """Claude Code usage stats — SwiftBar plugin.
 
 Usage percentages and reset timers come from Claude's OAuth API
