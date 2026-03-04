@@ -5,9 +5,9 @@ import os
 from metrics import format_duration, format_tokens
 from api import parse_reset_time
 
-# 16pt @ 2x retina (32x32px) stonks chart icon — matches system menu bar icon specs
-# templateImage: macOS auto-adapts to light/dark mode, ~1.5pt stroke weight
-ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAcklEQVR42u1VQQ7AMAjyrby3f3I7GtNmJ2FJIfEMSJQIw+AA76wyUBBnmcUS0InpAvrq6QKqiEoOpgBZ/t297AIkzkOde1/9neTO3blTunz8z+Pwy08NhwnXlWDX62PkuXFHc54fDYapdpM+klFnhvFbPEWeeeozcbjKAAAAAElFTkSuQmCC"
+# 16pt @ 2x retina (32x32px) Claude sparkle icon — matches system menu bar icon specs
+# templateImage: macOS auto-adapts to light/dark mode
+ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABs0lEQVR4nGNgGAWjgHiwD4gn4JCTorXl04H4PxTrYpEHiX+hpQPykRxwAofcB1o6gAHJAf/RxKdCxVbiUE824EXjqyMZuhdJ/ABULAGHY13IdQDMgDAksfNI4txQsWdo/PcMuEOLLAeA8HqoGAuS2Ek0dSDQhqaPixIHsKEZBsKcQHwazVIYWwtNbRElliODJjSDW5HYW7E4EoQPUMtyGGDHYREujA5ACdqdGg7pIMLytUBcBcSHsMhVE2PJfiA+DsSbgHgeEPcBcQ4QxwOxLRBHE+EIZPwciGcCsTOxvqxgwMxKpOCLQJxFrGXkAA0SHXSfAVJ811PD8iVEWGgIxJOB+B8WuVZyLS5FMgRU8lXgccA3NL2gEKuBOopkgB7cwUAsCWW/A+JtUPZ3LA5hIcdCZOCCZNg+JHHkvP4YiF8AsQSSuD6aGrKBCRDvBmIzJLEdUINVkRyzC8peCeW/RXIciM9OqUNgoAFqYCmSGIhfh8YH4Xo0PRQDTahB15HEdKFisUhinAxUCn50cI4BEqTIANYUU0ETnwgVF6O2I9ABrCakWhyTCkC55C1BVaNgFBAAAEbh5LvsZw07AAAAAElFTkSuQmCC"
 
 
 def progress_bar(pct, width=20):
