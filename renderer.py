@@ -5,8 +5,9 @@ import os
 from metrics import format_duration, format_tokens
 from api import parse_reset_time
 
-# 22pt @ 2x retina stonks chart icon (templateImage adapts to light/dark mode)
-ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAACwAAAAsCAYAAAAehFoBAAAAkUlEQVR42u2YSw7AIBBCvTlHn26bJo1TNz4qJLN/IsTPGNFZ0mPQkPUyKFVjRHK2AzycgOUWCWTxyqVwI3HYXDi8u/fF2MBalExOsFh39YcoBDYlS8mSWwNYOZUsUTgqCrPfGJS7MxiUu503F8bdWhwrWJFgO69d7A0L4e7XG5Z2u6vFLd56QFgcqyjHoiiC6QIwMAR47c6aiAAAAABJRU5ErkJggg=="
+# 16pt @ 2x retina (32x32px) stonks chart icon — matches system menu bar icon specs
+# templateImage: macOS auto-adapts to light/dark mode, ~1.5pt stroke weight
+ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAcklEQVR42u1VQQ7AMAjyrby3f3I7GtNmJ2FJIfEMSJQIw+AA76wyUBBnmcUS0InpAvrq6QKqiEoOpgBZ/t297AIkzkOde1/9neTO3blTunz8z+Pwy08NhwnXlWDX62PkuXFHc54fDYapdpM+klFnhvFbPEWeeeozcbjKAAAAAElFTkSuQmCC"
 
 
 def progress_bar(pct, width=20):
