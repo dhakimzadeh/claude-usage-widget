@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 # <swiftbar.hideSwiftBar>true</swiftbar.hideSwiftBar>
+# <swiftbar.hideAbout>true</swiftbar.hideAbout>
+# <swiftbar.hideRunInTerminal>true</swiftbar.hideRunInTerminal>
+# <swiftbar.hideLastUpdated>true</swiftbar.hideLastUpdated>
+# <swiftbar.hideDisablePlugin>true</swiftbar.hideDisablePlugin>
 
 """Claude Code usage stats — SwiftBar plugin.
 
