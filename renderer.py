@@ -2,6 +2,7 @@
 """SwiftBar output renderer for Claude Code usage widget."""
 
 import os
+from datetime import datetime
 from metrics import format_duration, format_tokens
 from api import parse_reset_time
 
@@ -124,11 +125,8 @@ def render(api_usage, session_metrics, config):
 
     lines.append("---")
 
-    # --- About ---
-    lines.append("About Claude Usage Widget | disabled=true size=14")
-    lines.append("v2.0.0 | font=Menlo size=11 color=gray")
-    lines.append("Usage % from Claude API (OAuth) | font=Menlo size=11 color=gray")
-    lines.append("Session stats from local telemetry | font=Menlo size=11 color=gray")
+    now = datetime.now().strftime("%-I:%M %p")
+    lines.append(f"Updated {now} | font=Menlo size=11 color=gray")
     lines.append("GitHub | href=https://github.com/dhakimzadeh/claude-usage-widget")
 
     for line in lines:
