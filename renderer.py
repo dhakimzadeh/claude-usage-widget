@@ -36,11 +36,17 @@ def render(api_usage, session_metrics, config):
     """Render SwiftBar output to stdout.
 
     Args:
-        api_usage: Dict from fetch_usage() (Claude API data), or None.
+        api_usage: Dict from fetch_usage() (Claude API data), or None/error dict.
         session_metrics: Dict with current_session and projects from local telemetry.
         config: Dict from load_config().
     """
     lines = []
+
+    # --- Detect auth errors ---
+    api_error = None
+    if isinstance(api_usage, dict) and "error" in api_usage:
+        api_error = api_usage["error"]
+        api_usage = None
 
     # --- Extract API data ---
     if api_usage:
@@ -62,7 +68,6 @@ def render(api_usage, session_metrics, config):
 
     # --- Menu bar title ---
     if fh_pct is not None:
-        reset_str = format_duration(fh_reset)
         color = title_color(fh_pct, config)
         lines.append(f"{fh_pct:.0f}% | templateImage={ICON_B64}{color}")
     else:
@@ -70,29 +75,37 @@ def render(api_usage, session_metrics, config):
 
     lines.append("---")
 
+    # --- Auth error: show login prompt ---
+    if api_error in ("token_expired", "no_credentials"):
+        lines.append("Session expired | color=red size=14")
+        lines.append("Run /login in Claude Code to re-authenticate | font=Menlo size=11 color=gray")
+        lines.append("↪ Open Terminal & Login | bash=/bin/zsh param1=-c param2='claude /login' terminal=true refresh=true")
+        lines.append("---")
+    elif api_error == "rate_limited":
+        lines.append("Rate limited | color=orange size=14")
+        lines.append("Try again in a few minutes | font=Menlo size=11 color=gray")
+        lines.append("---")
+    elif api_error:
+        lines.append("API error | color=orange size=14")
+        lines.append("Could not reach Claude API | font=Menlo size=11 color=gray")
+        lines.append("---")
+
     # --- 5-Hour Window (from API) ---
-    lines.append("5-Hour Window | disabled=true size=14")
     if fh_pct is not None:
+        lines.append("5-Hour Window | disabled=true size=14")
         bar = progress_bar(fh_pct)
         lines.append(f"{bar} {fh_pct:.0f}% | font=Menlo size=12")
         lines.append(f"Resets in: {format_duration(fh_reset)} | font=Menlo size=12")
-    else:
-        lines.append("Could not fetch usage data | font=Menlo size=12 color=red")
-        lines.append("Check OAuth token in Keychain | font=Menlo size=11 color=gray")
-
-    lines.append("---")
+        lines.append("---")
 
     # --- 7-Day Window (from API) ---
-    lines.append("7-Day Window | disabled=true size=14")
     if sd_pct is not None:
+        lines.append("7-Day Window | disabled=true size=14")
         bar = progress_bar(sd_pct)
         lines.append(f"{bar} {sd_pct:.0f}% | font=Menlo size=12")
         lines.append(f"Resets in: {format_duration(sd_reset)} | font=Menlo size=12")
-    else:
-        lines.append("-- | font=Menlo size=12 color=gray")
-
-    if ss_pct is not None:
-        lines.append(f"Sonnet: {ss_pct:.0f}% | font=Menlo size=12 color=gray")
+        if ss_pct is not None:
+            lines.append(f"Sonnet: {ss_pct:.0f}% | font=Menlo size=12 color=gray")
 
     lines.append("---")
 

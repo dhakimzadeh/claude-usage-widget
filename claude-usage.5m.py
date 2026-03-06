@@ -58,7 +58,7 @@ def main():
         render(api_usage, session_metrics, config)
 
     except Exception as e:
-        print("CC: err | color=red")
+        print("err | color=red")
         print("---")
         print(f"Error: {e} | color=red font=Menlo size=11")
         import traceback
